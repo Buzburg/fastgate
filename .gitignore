@@ -1,0 +1,5 @@
+fastgate
+fastgate.exe
+*.exe
+*.log
+.DS_Store
