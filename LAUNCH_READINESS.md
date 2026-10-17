@@ -20,3 +20,5 @@ Local checks used Linux x86-64, Python 3.12.14, Node 26.8.1, the installed Rust 
 - `tests`: PASS.
 
 Detailed command logs and setup diagnostics are retained in the private local launch-review workspace.
+
+Corrected CI branch filters: the default branch is `master`, while the old workflow only ran on `main`. Push and pull-request checks now cover the actual default branch.
