@@ -1,3 +1,3 @@
-module github.com/buzburgai-arch/fastgate
+module github.com/Buzburg/fastgate
 
 go 1.27.1

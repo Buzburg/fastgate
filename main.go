@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/buzburgai-arch/fastgate/pkg/proxy"
-	"github.com/buzburgai-arch/fastgate/pkg/triage"
+	"github.com/Buzburg/fastgate/pkg/proxy"
+	"github.com/Buzburg/fastgate/pkg/triage"
 )
 
 const version = "0.1.0"

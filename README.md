@@ -2,9 +2,9 @@
 
 > **Sub-15ms Local System 1 Decision Proxy & Tool Router for LLM Agents**
 
-[![CI](https://github.com/buzburgai-arch/fastgate/actions/workflows/ci.yml/badge.svg)](https://github.com/buzburgai-arch/fastgate/actions)
+[![CI](https://github.com/Buzburg/fastgate/actions/workflows/ci.yml/badge.svg)](https://github.com/Buzburg/fastgate/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/buzburgai-arch/fastgate)](https://goreportcard.com/report/github.com/buzburgai-arch/fastgate)
+[![Go Report Card](https://goreportcard.com/badge/github.com/Buzburg/fastgate)](https://goreportcard.com/report/github.com/Buzburg/fastgate)
 
 `fastgate` is a transparent reverse proxy that sits between your AI coding agents (Claude Code, OpenAI Codex, DeepSeek Harness) and upstream LLM APIs. By applying fast, local System 1 triage to incoming prompts and tool schemas in **<15ms**, `fastgate` prunes 80% of irrelevant tool definitions, slashes prompt tokens by up to 60%, and bypasses LLM round-trips for deterministic command outcomes.
 
@@ -44,10 +44,10 @@
 
 ```bash
 # Go install
-go install github.com/buzburgai-arch/fastgate@latest
+go install github.com/Buzburg/fastgate@latest
 
 # Or build from source
-git clone https://github.com/buzburgai-arch/fastgate.git
+git clone https://github.com/Buzburg/fastgate.git
 cd fastgate
 go build -o fastgate main.go
 ```

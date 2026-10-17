@@ -11,8 +11,8 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/buzburgai-arch/fastgate/pkg/telemetry"
-	"github.com/buzburgai-arch/fastgate/pkg/triage"
+	"github.com/Buzburg/fastgate/pkg/telemetry"
+	"github.com/Buzburg/fastgate/pkg/triage"
 )
 
 type Server struct {
