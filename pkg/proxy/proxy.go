@@ -9,18 +9,17 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"sync"
+	"time"
 
 	"github.com/Buzburg/fastgate/pkg/telemetry"
 	"github.com/Buzburg/fastgate/pkg/triage"
 )
 
 type Server struct {
-	UpstreamURL *url.URL
-	Port        int
-	classifier  *triage.Classifier
+	UpstreamURL  *url.URL
+	Port         int
+	classifier   *triage.Classifier
 	reverseProxy *httputil.ReverseProxy
-	mu          sync.Mutex
 }
 
 type GenericChatRequest struct {
@@ -34,6 +33,12 @@ func NewServer(upstream string, port int) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid upstream url: %w", err)
 	}
+	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil {
+		return nil, fmt.Errorf("upstream must be an http(s) URL without embedded credentials")
+	}
+	if port < 1 || port > 65535 {
+		return nil, fmt.Errorf("invalid port")
+	}
 
 	s := &Server{
 		UpstreamURL: u,
@@ -42,6 +47,9 @@ func NewServer(upstream string, port int) (*Server, error) {
 	}
 
 	proxy := httputil.NewSingleHostReverseProxy(u)
+	originalDirector := proxy.Director
+	proxy.Director = func(r *http.Request) { originalDirector(r); r.Host = u.Host }
+	proxy.FlushInterval = -1
 	s.reverseProxy = proxy
 
 	return s, nil
@@ -53,9 +61,9 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/healthz", s.handleHealth)
 	mux.HandleFunc("/", s.handleProxy)
 
-	addr := fmt.Sprintf(":%d", s.Port)
+	addr := fmt.Sprintf("127.0.0.1:%d", s.Port)
 	log.Printf("[fastgate] Proxy listening on %s (upstream: %s)", addr, s.UpstreamURL.String())
-	return http.ListenAndServe(addr, mux)
+	return (&http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}).ListenAndServe()
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +74,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	snap := telemetry.Global.Snapshot()
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(snap)
+	_ = json.NewEncoder(w).Encode(&snap)
 }
 
 func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
@@ -76,7 +84,7 @@ func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bodyBytes, err := io.ReadAll(r.Body)
+	bodyBytes, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 16<<20))
 	if err != nil {
 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
 		return
@@ -91,6 +99,18 @@ func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Preserve provider-specific parameters; only replace tools.
+	var payload map[string]json.RawMessage
+	if err := json.Unmarshal(bodyBytes, &payload); err != nil {
+		http.Error(w, "Invalid JSON", 400)
+		return
+	}
+	// Explicit tool selection and non-text requests must pass through unchanged.
+	if choice, ok := payload["tool_choice"]; ok && string(choice) != `"auto"` {
+		r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		s.reverseProxy.ServeHTTP(w, r)
+		return
+	}
 	// Extract prompt text from last user message
 	var lastUserPrompt string
 	for i := len(chatReq.Messages) - 1; i >= 0; i-- {
@@ -103,6 +123,11 @@ func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if lastUserPrompt == "" {
+		r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		s.reverseProxy.ServeHTTP(w, r)
+		return
+	}
 	// Extract tool names
 	var toolNames []string
 	toolMap := make(map[string]map[string]interface{})
@@ -140,7 +165,9 @@ func (s *Server) handleProxy(w http.ResponseWriter, r *http.Request) {
 	telemetry.Global.RecordOptimization(origTokens, prunedTokens)
 
 	chatReq.Tools = prunedTools
-	newBody, err := json.Marshal(chatReq)
+	toolsJSON, _ := json.Marshal(chatReq.Tools)
+	payload["tools"] = toolsJSON
+	newBody, err := json.Marshal(payload)
 	if err != nil {
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 		s.reverseProxy.ServeHTTP(w, r)

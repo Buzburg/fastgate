@@ -10,7 +10,7 @@ import (
 	"github.com/Buzburg/fastgate/pkg/triage"
 )
 
-const version = "0.1.0"
+const version = "0.1.1"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -51,7 +51,7 @@ func main() {
 		fmt.Printf("Prompt: %q\n", prompt)
 		fmt.Printf("Decision Latency: %s\n", res.DecisionDuration)
 		fmt.Printf("Retained Tools (%d/%d): %v\n", len(res.RetainedTools), res.OriginalToolCount, res.RetainedTools)
-		fmt.Printf("Token Savings: %.1f%%\n", res.TokenSavingsPct)
+		fmt.Printf("Tool count reduction: %.1f%%\n", res.TokenSavingsPct)
 		fmt.Printf("Verdict: %s\n", res.System1Verdict)
 
 	case "version":
@@ -64,7 +64,7 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Println(`fastgate — Sub-15ms Local System 1 Decision Proxy for LLM Agents
+	fmt.Println(`fastgate — Local tool-filtering proxy for LLM Agents
 
 Commands:
   start     Run the local proxy daemon

@@ -12,12 +12,12 @@ type ToolIntent struct {
 }
 
 type TriageResult struct {
-	DecisionDuration time.Duration `json:"decision_duration_ms"`
-	PrunedToolCount  int           `json:"pruned_tool_count"`
-	RetainedTools    []string      `json:"retained_tools"`
-	OriginalToolCount int          `json:"original_tool_count"`
-	TokenSavingsPct  float64       `json:"token_savings_pct"`
-	System1Verdict   string        `json:"system1_verdict"`
+	DecisionDuration  time.Duration `json:"decision_duration_ms"`
+	PrunedToolCount   int           `json:"pruned_tool_count"`
+	RetainedTools     []string      `json:"retained_tools"`
+	OriginalToolCount int           `json:"original_tool_count"`
+	TokenSavingsPct   float64       `json:"token_savings_pct"`
+	System1Verdict    string        `json:"system1_verdict"`
 }
 
 type Classifier struct {
@@ -74,6 +74,13 @@ func (c *Classifier) Classify(prompt string, availableTools []string) TriageResu
 		neededCategories["web_search"] = true
 	}
 
+	if strings.Contains(lowerPrompt, "delegate") || strings.Contains(lowerPrompt, "agent") {
+		neededCategories["subagent_control"] = true
+	}
+	// Unknown intent: preserve the complete catalog.
+	if len(neededCategories) == 0 {
+		return TriageResult{DecisionDuration: time.Since(start), RetainedTools: availableTools, OriginalToolCount: len(availableTools), System1Verdict: "PASSTHROUGH"}
+	}
 	// Always default to filesystem_read if nothing matched
 	if len(neededCategories) == 0 {
 		neededCategories["filesystem_read"] = true
@@ -92,14 +99,22 @@ func (c *Classifier) Classify(prompt string, availableTools []string) TriageResu
 	}
 
 	for _, tool := range availableTools {
-		if retainedSet[tool] {
+		known := false
+		for _, names := range c.intentMap {
+			for _, name := range names {
+				if name == tool {
+					known = true
+				}
+			}
+		}
+		if retainedSet[tool] || !known {
 			retained = append(retained, tool)
 		}
 	}
 
 	// Fallback guarantee: if everything was pruned, retain top 3
 	if len(retained) == 0 && len(availableTools) > 0 {
-		limit := 3
+		limit := len(availableTools)
 		if len(availableTools) < limit {
 			limit = len(availableTools)
 		}
